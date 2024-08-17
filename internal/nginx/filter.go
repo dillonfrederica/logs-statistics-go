@@ -29,7 +29,7 @@ func (ng *Nginx) Filter(origin string) (string, string) {
 		// }
 		// os.Exit(0)
 		if len(subMatchResults) == 11 {
-			return subMatchResults[1], subMatchResults[3] + " " + subMatchResults[4] + " " + subMatchResults[9]
+			return subMatchResults[1], subMatchResults[9] + " " + subMatchResults[3] + " " + subMatchResults[4]
 		}
 	}
 
