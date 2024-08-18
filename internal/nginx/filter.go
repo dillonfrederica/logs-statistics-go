@@ -4,7 +4,7 @@ import (
 	"log"
 	"regexp"
 	"strings"
-	"test-go/internal/xrayaccess"
+	"test-go/internal/xray"
 )
 
 type Nginx struct {
@@ -23,7 +23,7 @@ func NewNginx(key string) *Nginx {
 
 	return &Nginx{
 		key: key,
-		reg: regexp.MustCompile(`(?<ip>` + xrayaccess.IPREG + `).*\[(?<time>.*\s[+-]\d{4})\]\s['"](?<method>\w*?)\s(?<path>(?:` + key + `){1,})(?<params>\?.*){0,1}?\s(?<protocol>.*?)['"]\s(?<status_code>\d+)\s\d+\s['"].*?['"]\s['"](?<user_agent>.*?)['"]`),
+		reg: regexp.MustCompile(`(?<ip>` + xray.IPREG + `).*\[(?<time>.*\s[+-]\d{4})\]\s['"](?<method>\w*?)\s(?<path>(?:` + key + `){1,})(?<params>\?.*){0,1}?\s(?<protocol>.*?)['"]\s(?<status_code>\d+)\s\d+\s['"].*?['"]\s['"](?<user_agent>.*?)['"]`),
 	}
 }
 

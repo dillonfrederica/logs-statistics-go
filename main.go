@@ -35,9 +35,9 @@ func init() {
 }
 
 func printStatisticsHelp() {
-	fmt.Printf("Usage: %s statistics --kind [help|xray-access|nginx] --logs [日志] --search [正则表达式]\n", app)
+	fmt.Printf("Usage: %s statistics --kind [help|xray|nginx] --logs [日志] --search [正则表达式]\n", app)
 	fmt.Printf("Example(nginx): %s statistics --kind nginx --logs access.log --search \"\\/\"\n", app)
-	fmt.Printf("Example(xray-access): %s statistics --kind xray-access --logs access.log --search \"[^\\.]*\\.baidu\\.com\"\n", app)
+	fmt.Printf("Example(xray-access): %s statistics --kind xray --logs access.log --search \"[^\\.]*\\.baidu\\.com\"\n", app)
 }
 
 func statistics() {
@@ -52,8 +52,8 @@ func statistics() {
 	}
 
 	switch kind {
-	case "xray-access":
-		if err := f.Statistics(searchKey, internal.NewXrayAccess(searchKey)); err != nil {
+	case "xray":
+		if err := f.Statistics(searchKey, internal.NewXray(searchKey)); err != nil {
 			panic(err)
 		}
 	case "nginx":

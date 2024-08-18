@@ -4,13 +4,13 @@ import (
 	"os"
 	"strings"
 	"test-go/internal/nginx"
-	"test-go/internal/xrayaccess"
+	"test-go/internal/xray"
 
 	"github.com/oschwald/maxminddb-golang"
 )
 
-func NewXrayAccess(key string) Filter {
-	return xrayaccess.NewXrayAccess(key)
+func NewXray(key string) Filter {
+	return xray.NewXray(key)
 }
 
 func NewNginx(key string) Filter {

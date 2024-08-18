@@ -1,4 +1,4 @@
-package xrayaccess
+package xray
 
 import (
 	"log"
@@ -12,7 +12,7 @@ type XrayAccess struct {
 
 const IPREG = `(?:(?:\d{1,3}\.){3}\d{1,3})|(?:(?:[a-f0-9]{1,4}(?:\:[a-f0-9]{1,4}){7})|(?:[a-f0-9]{1,4}(?:\:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(?:\:[a-f0-9]{1,4}){0,7}))`
 
-func NewXrayAccess(key string) *XrayAccess {
+func NewXray(key string) *XrayAccess {
 	if key == "" {
 		key = `[^:]+`
 	}
