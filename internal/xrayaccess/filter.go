@@ -1,6 +1,7 @@
 package xrayaccess
 
 import (
+	"log"
 	"regexp"
 )
 
@@ -9,23 +10,43 @@ type XrayAccess struct {
 	reg *regexp.Regexp
 }
 
+const IPREG = `(?:(?:\d{1,3}\.){3}\d{1,3})|(?:(?:[a-f0-9]{1,4}(?:\:[a-f0-9]{1,4}){7})|(?:[a-f0-9]{1,4}(?:\:[a-f0-9]{1,4}){0,7}::[a-f0-9]{0,4}(?:\:[a-f0-9]{1,4}){0,7}))`
+
 func NewXrayAccess(key string) *XrayAccess {
 	if key == "" {
 		key = `[^:]+`
 	}
 	return &XrayAccess{
 		key: key,
-		reg: regexp.MustCompile(`(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}).*accepted\s(\w+):(` + key + `):(\d+)\s`),
+		reg: regexp.MustCompile(`(?<ip>` + IPREG + `).*accepted\s(\w+):(?<domain>` + key + `):(\d+)\s`),
 	}
 }
 
 func (xa *XrayAccess) Filter(origin string) (string, string) {
 	if origin != "" {
 		subMatchResults := xa.reg.FindStringSubmatch(origin)
-
-		if len(subMatchResults) == 5 {
-			return subMatchResults[1], subMatchResults[3]
+		groupNames := xa.reg.SubexpNames()
+		if len(subMatchResults) == 0 || len(groupNames) == 0 {
+			// log.Printf("未匹配到结果: %v\n", origin)
+			return "", ""
 		}
+		if len(subMatchResults) != len(groupNames) {
+			log.Fatalf("匹配异常: %v\n", origin)
+		}
+
+		var (
+			ip     string
+			domain string
+		)
+		for i, v := range groupNames {
+			switch v {
+			case "ip":
+				ip = subMatchResults[i]
+			case "domain":
+				domain = subMatchResults[i]
+			}
+		}
+		return ip, domain
 	}
 
 	return "", ""

@@ -2,6 +2,6 @@ module test-go
 
 go 1.22.5
 
-require github.com/xiaoqidun/qqwry v0.0.0-20240620014500-698a12cf0369
+require github.com/oschwald/maxminddb-golang v1.13.1
 
-require golang.org/x/text v0.16.0 // indirect
+require golang.org/x/sys v0.21.0 // indirect

@@ -2,8 +2,7 @@ package internal
 
 import (
 	"fmt"
-	"io"
-	"net/http"
+	"net"
 	"os"
 	"slices"
 	"sort"
@@ -11,7 +10,7 @@ import (
 	"test-go/internal/nginx"
 	"test-go/internal/xrayaccess"
 
-	"github.com/xiaoqidun/qqwry"
+	"github.com/oschwald/maxminddb-golang"
 )
 
 type Filter interface {
@@ -19,22 +18,26 @@ type Filter interface {
 }
 
 type (
-	FilterOrigin struct {
+	filterOrigin struct {
 		key  string
 		data []string
 	}
 
-	FilterCache struct {
+	filterCache struct {
 		ip      string
 		count   int
-		origins []*FilterOrigin
+		origins []*filterOrigin
+	}
+
+	dbs struct {
+		geolite *maxminddb.Reader
+		geocn   *maxminddb.Reader
 	}
 
 	Statistics struct {
-		logsPath   string
-		ipPath     string
+		dbs        dbs
 		logsString string
-		cache      []*FilterCache
+		cache      []*filterCache
 	}
 )
 
@@ -46,7 +49,7 @@ func NewNginx(key string) Filter {
 	return nginx.NewNginx(key)
 }
 
-func Load(logsPath, ipPath string) (*Statistics, error) {
+func Load(logsPath, geolite, geocn string) (*Statistics, error) {
 	// 读取日志文件
 	logsBytes, err := os.ReadFile(logsPath)
 	if err != nil {
@@ -54,14 +57,23 @@ func Load(logsPath, ipPath string) (*Statistics, error) {
 	}
 
 	// 读取IP数据库
-	if err := qqwry.LoadFile(ipPath); err != nil {
+	dblite, err := maxminddb.Open(geolite)
+	if err != nil {
+		return nil, err
+	}
+
+	// 读取IP数据库
+	dbcn, err := maxminddb.Open(geocn)
+	if err != nil {
 		return nil, err
 	}
 
 	return &Statistics{
 		logsString: string(logsBytes),
-		logsPath:   logsPath,
-		ipPath:     ipPath,
+		dbs: dbs{
+			geolite: dblite,
+			geocn:   dbcn,
+		},
 	}, nil
 }
 
@@ -71,19 +83,19 @@ func (f *Statistics) Statistics(origin string, fer Filter) error {
 		if line != "" {
 			ip, key := fer.Filter(line)
 			if ip != "" {
-				idx := slices.IndexFunc(f.cache, func(item *FilterCache) bool { return item.ip == ip })
+				idx := slices.IndexFunc(f.cache, func(item *filterCache) bool { return item.ip == ip })
 				if idx <= -1 {
-					f.cache = append(f.cache, &FilterCache{
-						origins: []*FilterOrigin{{key: key, data: []string{line}}},
+					f.cache = append(f.cache, &filterCache{
+						origins: []*filterOrigin{{key: key, data: []string{line}}},
 						ip:      ip,
 						count:   1,
 					})
 				} else {
 					f.cache[idx].count++
 
-					idx2 := slices.IndexFunc(f.cache[idx].origins, func(item *FilterOrigin) bool { return item.key == key })
+					idx2 := slices.IndexFunc(f.cache[idx].origins, func(item *filterOrigin) bool { return item.key == key })
 					if idx2 <= -1 {
-						f.cache[idx].origins = append(f.cache[idx].origins, &FilterOrigin{key: key, data: []string{line}})
+						f.cache[idx].origins = append(f.cache[idx].origins, &filterOrigin{key: key, data: []string{line}})
 					} else {
 						f.cache[idx].origins[idx2].data = append(f.cache[idx].origins[idx2].data, line)
 					}
@@ -101,52 +113,117 @@ func (f *Statistics) Sort() {
 	})
 }
 
-// https://raw.githubusercontent.com/FW27623/qqwry/main/qqwry.dat
-func DownloadQqwry(output string) error {
-	resp, err := http.Get("https://raw.githubusercontent.com/FW27623/qqwry/main/qqwry.dat")
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
+type DBCn struct {
+	City          string `maxminddb:"city"`
+	CityCode      int    `maxminddb:"cityCode"`
+	Districts     string `maxminddb:"districts"`
+	DistrictsCode int    `maxminddb:"districtsCode"`
+	ISP           string `maxminddb:"isp"`
+	Net           string `maxminddb:"net"`
+	Province      string `maxminddb:"province"`
+	ProvinceCode  int    `maxminddb:"provinceCode"`
+}
 
-	dataBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
+type DBGlobal struct {
+	City struct {
+		GeonameID int               `maxminddb:"geoname_id"`
+		Names     map[string]string `maxminddb:"names"`
+	} `maxminddb:"city"`
+	Continent struct {
+		Code      string            `maxminddb:"code"`
+		GeonameID int               `maxminddb:"geoname_id"`
+		Names     map[string]string `maxminddb:"names"`
+	} `maxminddb:"continent"`
+	Country struct {
+		GeonameID int               `maxminddb:"geoname_id"`
+		IsoCode   string            `maxminddb:"iso_code"`
+		Names     map[string]string `maxminddb:"names"`
+	} `maxminddb:"country"`
+	Location struct {
+		AccuracyRadius int     `maxminddb:"accuracy_radius"`
+		Latitude       float64 `maxminddb:"latitude"`
+		Longitude      float64 `maxminddb:"longitude"`
+		TimeZone       string  `maxminddb:"time_zone"`
+	} `maxminddb:"location"`
+	Postal struct {
+		Code string `maxminddb:"code"`
+	} `maxminddb:"postal"`
+	RegisteredCountry struct {
+		GeonameID int               `maxminddb:"geoname_id"`
+		IsoCode   string            `maxminddb:"iso_code"`
+		Names     map[string]string `maxminddb:"names"`
+	} `maxminddb:"registered_country"`
+	Subdivisions []struct {
+		GeonameID int               `maxminddb:"geoname_id"`
+		IsoCode   string            `maxminddb:"iso_code"`
+		Names     map[string]string `maxminddb:"names"`
+	} `maxminddb:"subdivisions"`
+}
+
+func (f *Statistics) findIP(ip net.IP) (string, error) {
+	var r1 DBGlobal
+	if err := f.dbs.geolite.Lookup(ip, &r1); err != nil {
+		return "", err
 	}
 
-	if err := os.WriteFile(output, dataBytes, 0644); err != nil {
-		return err
+	if r1.Country.IsoCode != "CN" {
+		var address string
+		if cn, ok := r1.Country.Names["zh-CN"]; ok {
+			address = cn
+		} else if en, ok := r1.Country.Names["en"]; ok {
+			address = en
+		} else {
+			address = r1.Country.IsoCode
+		}
+
+		if len(r1.Subdivisions) > 0 {
+			for _, v := range r1.Subdivisions {
+				if cn, ok := v.Names["zh-CN"]; ok {
+					address = fmt.Sprintf("%s %s", address, cn)
+				} else if en, ok := v.Names["en"]; ok {
+					address = fmt.Sprintf("%s %s", address, en)
+				}
+			}
+		}
+
+		if cn, ok := r1.City.Names["zh-CN"]; ok {
+			address = fmt.Sprintf("%s %s", address, cn)
+		} else if en, ok := r1.City.Names["en"]; ok {
+			address = fmt.Sprintf("%s %s", address, en)
+		}
+
+		return address, nil
 	}
 
-	return nil
+	var r2 DBCn
+	if err := f.dbs.geocn.Lookup(ip, &r2); err != nil {
+		return "", err
+	}
+
+	var address string
+	if r2.Province != "" {
+		address = r2.Province
+	}
+	if r2.City != "" {
+		address = fmt.Sprintf("%s %s", address, r2.City)
+	}
+	if r2.Districts != "" {
+		address = fmt.Sprintf("%s %s", address, r2.Districts)
+	}
+	if r2.ISP != "" {
+		address = fmt.Sprintf("%s %s", address, r2.ISP)
+	}
+	return address, nil
 }
 
 func (f *Statistics) Print() {
 	f.Sort()
 
 	for i, cache := range f.cache {
-		// 从内存或缓存查询IP
-		location, err := qqwry.QueryIP(cache.ip)
+		address, err := f.findIP(net.ParseIP(cache.ip))
 		if err != nil {
 			fmt.Printf("错误：%v\n", err)
 			continue
-		}
-
-		address := ""
-		if location.Country != "" {
-			address = location.Country
-		}
-		if location.Province != "" {
-			address = fmt.Sprintf("%s %s", address, location.Province)
-		}
-		if location.City != "" {
-			address = fmt.Sprintf("%s %s", address, location.City)
-		}
-		if location.District != "" {
-			address = fmt.Sprintf("%s %s", address, location.District)
-		}
-		if location.ISP != "" {
-			address = fmt.Sprintf("%s %s", address, location.ISP)
 		}
 
 		fmt.Printf("No.%d\n  IP: %s 共访问%d次\n  物理地址: %s\n",

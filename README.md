@@ -7,7 +7,7 @@
 # 中国大陆可能需要设置终端代理
 # export HTTPS_PROXY=http://127.0.0.1:8080
 # export HTTP_PROXY=http://127.0.0.1:8080
-go run main.go download-qqwry
+go run main.go download
 ```
 
 2. 统计日志数据
@@ -21,5 +21,7 @@ go run main.go statistics --kind nginx --logs access.log --search "/favicon.png"
 ```
 
 ### 感谢以下项目（排名不分先后）:
-* [qqwry](https://github.com/xiaoqidun/qqwry)
 * [qqwry.dat](https://github.com/FW27623/qqwry)
+* [GeoCN](https://github.com/ljxi/GeoCN)
+* [maxminddb-golang](https://github.com/oschwald/maxminddb-golang)
+* [GeoLite](https://github.com/P3TERX/GeoLite.mmdb)

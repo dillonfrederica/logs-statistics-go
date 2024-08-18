@@ -3,6 +3,8 @@ package nginx
 import (
 	"log"
 	"regexp"
+	"strings"
+	"test-go/internal/xrayaccess"
 )
 
 type Nginx struct {
@@ -13,11 +15,15 @@ type Nginx struct {
 func NewNginx(key string) *Nginx {
 	if key == "" {
 		key = `\/[^\/\?]*`
+	} else {
+		if strings.Contains(key, "(?P<") {
+			log.Fatalln("key 中不能包含 (?P<) 条件")
+		}
 	}
 
 	return &Nginx{
 		key: key,
-		reg: regexp.MustCompile(`(?<ip>(?:\d{1,3}\.){3}\d{1,3}).*\[(?<time>.*\s[+-]\d{4})\]\s['"](?<method>\w*?)\s(?<path>(?:` + key + `){1,})(?<params>\?.*){0,1}?\s(?<protocol>.*?)['"]\s(?<status_code>\d+)\s\d+\s['"].*?['"]\s['"](?<user_agent>.*?)['"]`),
+		reg: regexp.MustCompile(`(?<ip>` + xrayaccess.IPREG + `).*\[(?<time>.*\s[+-]\d{4})\]\s['"](?<method>\w*?)\s(?<path>(?:` + key + `){1,})(?<params>\?.*){0,1}?\s(?<protocol>.*?)['"]\s(?<status_code>\d+)\s\d+\s['"].*?['"]\s['"](?<user_agent>.*?)['"]`),
 	}
 }
 

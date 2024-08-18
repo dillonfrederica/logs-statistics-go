@@ -9,7 +9,8 @@ import (
 
 var (
 	logs      string
-	ipdata    string
+	geolite   string
+	geocn     string
 	searchKey string
 	app       string
 	method    string
@@ -25,8 +26,9 @@ func init() {
 	method = os.Args[1]
 	os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
 
-	flag.StringVar(&logs, "logs", "./access.log", "日志")
-	flag.StringVar(&ipdata, "ipdata", "./qqwry.dat", "IP数据库")
+	flag.StringVar(&logs, "logs", "", "日志")
+	flag.StringVar(&geolite, "geolite", "./GeoLite2-City.mmdb", "IP数据库")
+	flag.StringVar(&geocn, "geocn", "./GeoCN.mmdb", "IP数据库")
 	flag.StringVar(&searchKey, "search", "", "搜索正则表达式")
 	flag.StringVar(&kind, "kind", "", "类型")
 	flag.Parse()
@@ -39,12 +41,12 @@ func printStatisticsHelp() {
 }
 
 func statistics() {
-	if logs == "" || kind == "" || ipdata == "" {
+	if logs == "" || kind == "" {
 		printStatisticsHelp()
 		os.Exit(0)
 	}
 
-	f, err := internal.Load(logs, ipdata)
+	f, err := internal.Load(logs, geolite, geocn)
 	if err != nil {
 		panic(err)
 	}
@@ -69,24 +71,25 @@ func statistics() {
 	f.Print()
 }
 
-func downloadQqwry() {
-	fmt.Printf("开始下载IP数据库\n")
-	if err := internal.DownloadQqwry(ipdata); err != nil {
+func download() {
+	if err := internal.DownloadGeoLite(geolite); err != nil {
 		panic(err)
 	}
-	fmt.Printf("下载完成, 已保存到 %s\n", ipdata)
+	if err := internal.DownloadGeoCN(geocn); err != nil {
+		panic(err)
+	}
 }
 
 func printHelp() {
-	fmt.Printf("Usage: %s [help|statistics|download-qqwry]\n", app)
+	fmt.Printf("Usage: %s [help|statistics|download]\n", app)
 }
 
 func main() {
 	switch method {
 	case "statistics":
 		statistics()
-	case "download-qqwry":
-		downloadQqwry()
+	case "download":
+		download()
 	case "help":
 		printHelp()
 		os.Exit(0)
