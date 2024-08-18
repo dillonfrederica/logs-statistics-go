@@ -41,7 +41,7 @@ func (stats *Statistics) filterThread(cancel context.CancelFunc, wg *sync.WaitGr
 	defer cancel()
 
 	var (
-		c = make(chan struct{}, max-2)
+		c = make(chan struct{}, max)
 		w sync.WaitGroup
 	)
 
