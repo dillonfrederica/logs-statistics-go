@@ -46,7 +46,7 @@ func statistics() {
 		os.Exit(0)
 	}
 
-	f, err := internal.Load(logs, geolite, geocn)
+	f, err := internal.NewStatistics(logs, geolite, geocn)
 	if err != nil {
 		panic(err)
 	}
